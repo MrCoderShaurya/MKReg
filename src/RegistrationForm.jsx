@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
 
 /* ─── Icons ──────────────────────────────────────────────────────── */
@@ -201,11 +201,42 @@ function Toast({ notification, onClose }) {
 }
 
 /* ─── Main Component ─────────────────────────────────────────────── */
+/** Extracts event from URL or fetches latest from database */
+function useEventFromUrl() {
+  const [eventName, setEventName] = useState("");
+  
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const eventFromUrl = urlParams.get('event');
+    
+    if (eventFromUrl) {
+      setEventName(eventFromUrl);
+    } else {
+      // Fetch latest event from database
+      fetchLatestEvent();
+    }
+  }, []);
+  
+  const fetchLatestEvent = async () => {
+    const { data, error } = await supabase
+      .from('project')
+      .select('name')
+      .order('created_at', { ascending: false })
+      .limit(1);
+    
+    if (!error && data && data.length > 0) {
+      setEventName(data[0].name);
+    }
+  };
+  
+  return eventName;
+}
+
 /** Extracts and formats the event name from the URL path.
  *  e.g. /hello  → "Hello"
  *       /my-event-2025 → "My Event 2025"
  */
-function useEventFromUrl() {
+function useEventLabel() {
   const slug = window.location.pathname.split("/").filter(Boolean)[0] ?? "";
   const label = slug
     ? slug.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
@@ -214,7 +245,8 @@ function useEventFromUrl() {
 }
 
 export default function RegistrationForm() {
-  const { slug: eventSlug, label: eventLabel } = useEventFromUrl();
+  const eventName = useEventFromUrl();
+  const { slug: eventSlug, label: eventLabel } = useEventLabel();
 
   const [form, setForm] = useState({
     name: "",
@@ -258,7 +290,7 @@ export default function RegistrationForm() {
 
     const { error } = await supabase
       .from("users")
-      .insert([{ ...form, status: "pending", event: eventSlug }]);
+      .insert([{ ...form, status: "pending", event: eventName || eventSlug }]);
 
     if (error) {
       setNotification({ message: error.message, type: "error" });
