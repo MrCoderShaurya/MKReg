@@ -1,4 +1,5 @@
 import './App.css'
+// @ts-ignore
 import RegistrationForm from './RegistrationForm.jsx'
 
 function App() {
